@@ -1,0 +1,16 @@
+numpy==1.23.*
+matplotlib==3.5.*
+scipy==1.8.*
+scikit-learn==1.1.*
+h5py==3.7.*
+tqdm==4.64.*
+networkx==2.8.*
+torch-geometric==2.1.*
+class-resolver==0.3.*
+torch==1.12.*
+torch-cluster==1.6.*
+torch-scatter==2.0.*
+torch-sparse==0.6.*
+torch-spline-conv==1.2.*
+tensorboard==2.10.*
+#optuna==3.0.*
