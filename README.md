@@ -1,5 +1,4 @@
-# GeneDiseaseGNN
-Predicting gene-disease associations using heterogeneous graph neural networks
+# Predicting gene-disease associations using heterogeneous graph neural networks
 
 Knowledge of gene-disease associations (GDAs) is helpful in further understanding the mechanisms that underly diseases and syndromes. This understanding can, in turn, aid in developing novel methods for diagnosis, prevention, or treatment. However, the picture is far from complete. Supposedly, the majority of true GDAs are yet undiscovered. The fact that experimental verification of new hypothetical GDAs is a resource and time-intensive task hinders discovery. Perhaps a way of predicting GDAs that likely exist could assist in reducing resources expended on experiments with a negative outcome.
 
