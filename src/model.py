@@ -152,6 +152,24 @@ class Prediction(NamedTuple):
     gene_names: Optional[Sequence[str]] = None
     phenotype_names: Optional[Sequence[str]] = None
 
+    def save(self, path):
+        npz_fields = {'scores': self.scores, 'gene_ids': self.gene_ids, 'phenotype_ids': self.phenotype_ids}
+        if self.gene_names is not None:
+            npz_fields['gene_names'] = self.gene_names
+        if self.phenotype_names is not None:
+            npz_fields['phenotype_names'] = self.phenotype_names
+        np.savez_compressed(path, **npz_fields)
+
+    @classmethod
+    def load(cls, path):
+        npz = np.load(path)
+        scores = npz['scores']
+        gene_ids = npz['gene_ids']
+        phenotype_ids = npz['phenotype_ids']
+        gene_names = npz.get('gene_names')
+        phenotype_names = npz.get('phenotype_names')
+        return cls(scores, gene_ids, phenotype_ids, gene_names, phenotype_names)
+
 
 def hinge_loss(y_pred, y_true, margin=0.1):
     y_pos = torch.sigmoid(y_pred[y_true == 1])

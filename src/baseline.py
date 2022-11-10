@@ -14,37 +14,35 @@
 # long with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
+import random
 import time
 from datetime import datetime, timezone
-import random
+from typing import Mapping
 
 import numpy as np
 import torch
-import torch_geometric.nn as pyg_nn
+from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 from torch_geometric import seed_everything
 from torch_geometric.data import HeteroData
+from torch_geometric.typing import NodeType, EdgeType, Adj
 
-from model import HeteroConvEncoder, InnerProductDecoder, Model, \
-    UniformNegativeEdgeSampler, load_and_preprocess_data, train, evaluate, Prediction
+from model import Model, UniformNegativeEdgeSampler, load_and_preprocess_data, train, evaluate, Prediction, Encoder, \
+    MLPDecoder
 
 
-class HeteroConvModel(Model):
-    def __init__(self):
+class IdentityEncoder(Encoder):
+    def forward(self, x_dict: Mapping[NodeType, Tensor],
+                edge_index_dict: Mapping[EdgeType, Adj],
+                **conv_kwargs) -> Mapping[NodeType, Tensor]:
+        return x_dict
+
+
+class BaselineModel(Model):
+    def __init__(self, in_channels: int, hidden_channels: int):
         super().__init__()
-        self._encoder = HeteroConvEncoder(
-            dim=[64, 32, 32],
-            node_types=['protein', 'disease'],
-            conv_factory=self.conv_factory,
-            use_pre_mlp=False,
-            use_inner_mlp=False,
-            use_batch_norm=True,
-            dropout=0.1,
-            act='PReLU',
-            use_post_mlp=False,
-            normalize=False
-        )
-        self._decoder = InnerProductDecoder()
+        self._encoder = IdentityEncoder()
+        self._decoder = MLPDecoder(in_channels=in_channels, hidden_channels=hidden_channels)
 
     @property
     def encoder(self):
@@ -53,15 +51,6 @@ class HeteroConvModel(Model):
     @property
     def decoder(self):
         return self._decoder
-
-    @staticmethod
-    def conv_factory(dim: int):
-        return pyg_nn.HeteroConv({
-            ('protein', 'associated_with', 'protein'): pyg_nn.GCNConv(-1, dim),
-            ('protein', 'associated_with', 'disease'): pyg_nn.SAGEConv((-1, -1), dim, root_weight=True),
-            ('disease', 'associated_with', 'protein'): pyg_nn.SAGEConv((-1, -1), dim, root_weight=True),
-            ('disease', 'associated_with', 'disease'): pyg_nn.GATConv(-1, dim, heads=1)
-        }, aggr='sum')
 
 
 def main():
@@ -85,7 +74,7 @@ def main():
         for k in ('train', 'val', 'test', 'test_medium', 'test_low')
     }
 
-    model = HeteroConvModel()
+    model = BaselineModel(in_channels=128, hidden_channels=64)
 
     with torch.no_grad():
         x_dict = data_split['train']['message'].x_dict
@@ -96,7 +85,7 @@ def main():
 
     print(f'Model contains {sum([np.prod(x.shape, dtype=int) for x in model.parameters()])} parameters.')
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0005, weight_decay=1e-5)
 
     best_val_loss = float('inf')
     bad_epochs = 0
@@ -115,7 +104,7 @@ def main():
             bad_epochs = 0
         else:
             bad_epochs += 1
-            if bad_epochs > 7:
+            if bad_epochs > 15:
                 break
     best_model_state = torch.load(os.path.join('checkpoints', f'model_{timestamp}.pt'))
     model.load_state_dict(best_model_state)
@@ -139,7 +128,7 @@ def best_prediction(timestamp):
     random.seed()
 
     best_model_state = torch.load(os.path.join('checkpoints', f'model_{timestamp}.pt'))
-    model = HeteroConvModel()
+    model = BaselineModel(in_channels=128, hidden_channels=64)
     model.eval()
     model.load_state_dict(best_model_state)
 
@@ -150,11 +139,5 @@ def best_prediction(timestamp):
     return pred, training_set
 
 
-def save_best_prediction():
-    timestamp = "2022-10-29T12:30:30+00:00"
-    pred, training_set = best_prediction(timestamp)
-    pred.save(f"pred_{timestamp}.npz")
-
-
 if __name__ == '__main__':
-    save_best_prediction()
+    main()
